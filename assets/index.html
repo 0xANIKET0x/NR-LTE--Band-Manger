@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>NR Band Manager</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <!-- Header -->
+  <header class="header" style="flex-direction: column; align-items: stretch;">
+    <div class="header-glow"></div>
+    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+      <h1 class="logo">NR Band<span class="accent">Manager</span></h1>
+      <div class="status-pill" id="statusPill">
+        <span class="status-dot"></span>
+        <span id="statusText">Initializing…</span>
+      </div>
+    </div>
+    
+    <div style="margin-top: 15px;">
+      <label for="globalSimSelect" style="font-size:12px; color:var(--text-dim); display:block; margin-bottom:4px;">Global Target SIM Slot:</label>
+      <select id="globalSimSelect" class="sim-select" style="width:100%; padding:8px; border-radius:6px; background:var(--bg-card); color:var(--text-light); border:1px solid var(--accent); font-weight: bold;">
+        <option value="-1">All SIMs (Default)</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- Tab Bar -->
+  <nav class="tab-bar">
+    <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </button>
+    <button class="tab" data-tab="scan" onclick="switchTab('scan')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Scan
+    </button>
+    <button class="tab" data-tab="lock" onclick="switchTab('lock')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Lock
+    </button>
+    <button class="tab" data-tab="terminal" onclick="switchTab('terminal')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Terminal
+    </button>
+  </nav>
+
+  <!-- Dashboard Tab -->
+  <div class="tab-content active" id="tab-dashboard">
+    <div class="card device-card">
+      <h3>Device</h3>
+      <div class="info-grid" id="deviceInfo">
+        <div class="info-item"><span class="label">Model</span><span class="value" id="devModel">—</span></div>
+        <div class="info-item"><span class="label">SoC</span><span class="value" id="devSoc">—</span></div>
+        <div class="info-item"><span class="label">Android</span><span class="value" id="devAndroid">—</span></div>
+        <div class="info-item"><span class="label">Root</span><span class="value" id="devRoot">—</span></div>
+      </div>
+    </div>
+
+    <div class="card network-card">
+      <h3>Network Status</h3>
+      <div id="networkStatus" class="mono-text">Tap refresh to check…</div>
+      <button class="btn btn-secondary" onclick="refreshNetwork()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Refresh
+      </button>
+    </div>
+
+    <div class="card">
+      <h3>Saved Lock</h3>
+      <div id="savedLockInfo" class="mono-text">No lock saved</div>
+      <div class="btn-row">
+        <button class="btn btn-accent" onclick="reapplyLock()">Re-apply Lock</button>
+        <button class="btn btn-danger" onclick="restoreDefaults()">Restore Defaults</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Auto Re-apply on Boot</h3>
+      <label class="toggle">
+        <input type="checkbox" id="autoReapply" onchange="toggleAutoReapply()">
+        <span class="toggle-slider"></span>
+        <span class="toggle-label">Automatically restore band lock ~45s after boot</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Scan Tab -->
+  <div class="tab-content" id="tab-scan">
+    <div class="card">
+      <h3>Modem Probe & Diagnostics</h3>
+      <p class="card-desc">Comprehensive scan of all modem interfaces — AT ports, DIAG, QMI/QRTR, vendor services. Shows which methods work for band locking.</p>
+      <div class="btn-row">
+        <button class="btn btn-accent" onclick="runProbe()" id="probeBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          Run Modem Probe
+        </button>
+        <button class="btn btn-secondary" onclick="runDiagnostics()">Full Diagnostics</button>
+      </div>
+      <div id="probeResults" class="results-box hidden"></div>
+    </div>
+
+    <div class="card">
+      <h3>Band Scan</h3>
+      <p class="card-desc">Query the modem for supported and active NR/LTE bands at your current location.</p>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="scanBands('nr')">Scan NR Bands</button>
+        <button class="btn btn-secondary" onclick="scanBands('lte')">Scan LTE Bands</button>
+        <button class="btn btn-secondary" onclick="scanBands('all')">Scan All</button>
+      </div>
+      <div id="scanResults" class="results-box hidden"></div>
+    </div>
+  </div>
+
+  <!-- Lock Tab -->
+  <div class="tab-content" id="tab-lock">
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3>5G NR Band Selection</h3>
+        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="clearBands('nr')">Clear</button>
+      </div>
+      <p class="card-desc">Select which 5G NR bands to lock. Only selected bands will be used.</p>
+      <div class="band-grid" id="nrBandGrid"></div>
+
+      <button class="btn btn-accent btn-full" onclick="lockNRBands()" id="lockNRBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Lock Selected NR Bands
+      </button>
+    </div>
+
+    <div class="card">
+      <h3>4G LTE Band Selection</h3>
+      <p class="card-desc">Select which LTE bands to lock.</p>
+      <div class="band-grid" id="lteBandGrid"></div>
+      <button class="btn btn-accent btn-full" onclick="lockLTEBands()" id="lockLTEBtn">Lock Selected LTE Bands</button>
+    </div>
+
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="header-row">
+        <h3>Network Mode</h3>
+      </div>
+      <p class="card-desc">Set preferred network type natively via Telephony API.</p>
+
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="setModeNative(4096)">4G Only</button>
+        <button class="btn btn-outline" onclick="setModeNative(524288)">5G Only</button>
+        <button class="btn btn-outline" onclick="setModeNative(528384)">4G + 5G</button>
+      </div>
+      
+      <div style="margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;">
+        <button class="btn btn-accent" onclick="force5GPlusPlus()" style="width: 100%; font-weight: bold; font-size: 14px; background: linear-gradient(45deg, #FF007A, #7928CA); border: none;">
+          ⚡ Force 5G++ (Max Speed / CA)
+        </button>
+        <p style="font-size: 11px; color: var(--text-dim); text-align: center; margin-top: 5px;">Aggressively enables Carrier Aggregation and locks Mid/High Capacity Bands</p>
+      </div>
+    </div>
+    
+    <div class="card" style="margin-top:20px; border: 1px solid var(--danger);">
+      <div class="header-row">
+        <h3 style="color: var(--danger);">Reset</h3>
+      </div>
+      <p style="font-size: 14px; margin-bottom: 15px; color: var(--text-muted);">
+        Clear all active band locks and custom network modes across all SIM slots, restoring the device to its default hardware state.
+      </p>
+      <button class="btn btn-danger" onclick="restoreDefaults()" style="width: 100%;">Clear All Forcings</button>
+    </div>
+
+    <!-- Lock Results -->
+    <div class="card" style="margin-top:20px;">
+      <div class="header-row">
+        <h3>Lock Results</h3>
+        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="copyLogs()">Copy</button>
+      </div>
+      <div id="lockResults" class="results-box hidden"></div>
+    </div>
+  </div>
+
+  <!-- Terminal Tab -->
+  <div class="tab-content" id="tab-terminal">
+    <div class="card">
+      <h3>AT Command Terminal</h3>
+      <p class="card-desc">Send raw AT commands to <code>/dev/at_mdm0</code></p>
+      <div class="terminal-input">
+        <input type="text" id="atInput" placeholder="Enter AT command (e.g., ATI)" onkeydown="if(event.key==='Enter')sendATCmd()">
+        <button class="btn btn-accent" onclick="sendATCmd()">Send</button>
+      </div>
+      <div class="quick-cmds">
+        <button class="chip" onclick="quickAT('ATI')">ATI</button>
+        <button class="chip" onclick="quickAT('AT+CGMR')">CGMR</button>
+        <button class="chip" onclick="quickAT('AT+COPS?')">COPS</button>
+        <button class="chip" onclick="quickAT('AT+CFUN?')">CFUN</button>
+        <button class="chip" onclick="quickAT('AT+QENG=\"servingcell\"')">Serving Cell</button>
+        <button class="chip" onclick="quickAT('AT+QNWPREFCFG=\"nr5g_band\"')">NR Bands</button>
+        <button class="chip" onclick="quickAT('AT+QNWPREFCFG=\"lte_band\"')">LTE Bands</button>
+      </div>
+      <div id="termOutput" class="terminal-output"></div>
+    </div>
+
+    <div class="card">
+      <h3>Root Shell</h3>
+      <p class="card-desc">Execute root commands directly.</p>
+      <div class="terminal-input">
+        <input type="text" id="rootInput" placeholder="Enter root command" onkeydown="if(event.key==='Enter')sendRootCmd()">
+        <button class="btn btn-accent" onclick="sendRootCmd()">Run</button>
+      </div>
+      <div id="rootOutput" class="terminal-output"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
